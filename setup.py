@@ -16,6 +16,7 @@ setup(
     ],
 
     tests_require = [
+        "py-test"
     ],
 
     packages = [
