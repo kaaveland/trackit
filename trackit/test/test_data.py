@@ -8,7 +8,7 @@
 import pytest
 import sqlite3
 
-from ..data import Task, Tasks
+from ..data import Task, Tasks, TaskInterval, TaskIntervals
 
 class TestTasks(object):
 
@@ -47,3 +47,21 @@ class TestTasks(object):
     def test_should_retrieve_previously_inserted_task_by_id(self):
         task = self.tasks.by_id(1)
         assert task.name == "Test" and task.description == "Test"
+
+    def test_updates_should_be_reflected_in_database(self):
+        task = self.tasks.by_id(1)
+        task.name = "Not test"
+        task.description = "descr"
+        self.tasks.update(task)
+        in_db = self.tasks.by_id(1)
+        assert in_db.name == "Not test" and in_db.description == "descr"
+
+class TestTaskIntervals(object):
+
+    def setup(self):
+        self.tt = TestTasks()
+        self.tt.setup
+        self.task_intervals = TaskIntervals(self.tt.conn)
+
+    def teardown(self):
+        self.tt.teardown()
