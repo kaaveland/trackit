@@ -8,7 +8,25 @@
 import pytest
 import sqlite3
 
-from ..data import Task, Tasks, TaskInterval, TaskIntervals
+from ..data import Task, Tasks, TaskInterval, TaskIntervals, ClosesCursor
+
+def test_auto_closing_cursor_closes_cursor():
+    class ClosableMock(object):
+        def __init__(self):
+            self.closed = False
+        def close(self):
+            self.closed = True
+    mock = ClosableMock()
+    class ConnectionMock(object):
+        def cursor(self):
+            return mock
+    class HasConnection(ClosesCursor):
+        @property
+        def conn(self):
+            return ConnectionMock()
+    with HasConnection().cursor() as cursor:
+        pass
+    assert mock.closed
 
 class TestTasks(object):
 
