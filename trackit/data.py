@@ -13,6 +13,9 @@ import time
 from contextlib import closing
 from .util import dumb_constructor, DefaultRepr
 
+class TooManyTasksInProgress(Exception):
+    pass
+
 class ClosesCursor(object):
     """Inherit to get context managed cursor, enabling the following idiom:
 
@@ -33,6 +36,7 @@ def _execute_with_except(cursor, sql):
     except sqlite3.OperationalError:
         pass
 
+
 class Task(DefaultRepr):
     """Model for a Task."""
 
@@ -45,8 +49,9 @@ class Task(DefaultRepr):
         """Readonly - the row id of the task."""
         return self._task_id
 
-def _map_task(task_tuple):
-    return Task(*task_tuple)
+    @classmethod
+    def map_row(cls, row):
+        return cls(*row)
 
 class Tasks(ClosesCursor):
     """Repository to use for accessing, creating and updating Task."""
@@ -99,13 +104,13 @@ class Tasks(ClosesCursor):
         name_like = "%{}%".format(name)
         with self.cursor() as cursor:
             cursor.execute("SELECT TASK, NAME, DESCRIPTION FROM TASK WHERE NAME LIKE ?", (name_like,))
-            return [_map_task(task) for task in cursor.fetchall()]
+            return [Task.map_row(row) for row in cursor.fetchall()]
 
     def all(self):
         """Retrieve all tasks in the database."""
         with self.cursor() as cursor:
             cursor.execute("SELECT TASK, NAME, DESCRIPTION FROM TASK")
-            return [_map_task(task) for task in cursor.fetchall()]
+            return [Task.map_row(row) for row in cursor.fetchall()]
 
     def by_id(self, id):
         """Find a task with a given id. This will raise an exception if no such row exists.
@@ -118,13 +123,13 @@ class Tasks(ClosesCursor):
             row = cursor.fetchone()
             if not row:
                 raise KeyError("No Task with id: {}".format(id))
-            return _map_task(row)
+            return Task.map_row(row)
 
 class TaskInterval(DefaultRepr):
     """Model for a time spent working on some task."""
 
     @dumb_constructor
-    def __init__(self, _task, _task_interval, start_time, stop_time=None, last_update=None):
+    def __init__(self, _task, _task_interval, start_time, stop_time=None):
         pass
 
     @property
@@ -137,6 +142,14 @@ class TaskInterval(DefaultRepr):
         """Readonly - the id of this taskinterval."""
         return self._task_interval
 
+    @property
+    def in_progress(self):
+        return self.stop_time is None
+
+    @classmethod
+    def map_row(cls, task, row):
+        return cls(task, *row)
+
 class TaskIntervals(ClosesCursor):
     """Repository to use for accessing, creating and updating TaskIntervals.
     """
@@ -145,9 +158,8 @@ class TaskIntervals(ClosesCursor):
     CREATE TABLE TASKINTERVAL(
         TASKINTERVAL INTEGER,
         TASK INTEGER NOT NULL,
-        START_TIME INTEGER NOT NULL
+        START_TIME INTEGER NOT NULL,
         STOP_TIME INTEGER,
-        LAST_UPDATE INTEGER NOT NULL,
         PRIMARY KEY(TASKINTERVAL),
         FOREIGN KEY(TASK) REFERENCES TASK(TASK)
     );
@@ -167,19 +179,64 @@ class TaskIntervals(ClosesCursor):
             _execute_with_except(cursor, TaskIntervals.SCHEMA)
 
     def start(self, task):
-        """Start working on a task."""
+        """Start working on a task.
+
+        Arguments:
+        - `task`: the task to start working on."""
 
         assert task is not None, "may not start task None"
+        in_progress = self.in_progress()
+        if in_progress is not None:
+            raise TooManyTasksInProgress("Must stop working on {} before starting on new task."
+                                         .format(in_progress))
         with self.cursor() as cursor:
             now = time.time()
-            sql = "INSERT INTO TASKINTERVAL(TASK, START_TIME, LAST_UPDATE) VALUES(?, ?, ?)"
-            cursor.execute(sql, (task.task_id, now, now))
+            sql = "INSERT INTO TASKINTERVAL(TASK, START_TIME) VALUES(?, ?)"
+            cursor.execute(sql, (task.task_id, now))
             return TaskInterval(task, cursor.lastrowid, now)
 
-    def stop(self, task_interval):
-        """Stop working on a task."""
+    def stop(self, task):
+        """Stop working on a task.
 
+        Arguments:
+        - `task`: the task to stop working on"""
+
+        latest = ("SELECT TASKINTERVAL FROM TASKINTERVAL WHERE TASK = ? AND " +
+                  "START_TIME = (SELECT MAX(START_TIME) FROM TASKINTERVAL WHERE TASK = ?)")
+        now = time.time()
+        stop = "UPDATE TASKINTERVAL SET STOP_TIME = ? WHERE TASKINTERVAL = ?"
         with self.cursor() as cursor:
-            now = time.time()
-            sql = "UPDATE TASKINTERVAL SET LAST_UPDATE = ?, TASK_STOP = ? WHERE TASKINTERVAL = ?"
-            cursor.execute(sql, (now, now, task_interval.task_interval))
+            cursor.execute(latest, (task.task_id, task.task_id))
+            row = cursor.fetchone()
+            if not row:
+                raise KeyError("No work in progress on task: {}".format(task))
+            cursor.execute(stop, (now, row[0]))
+
+    def for_task(self, task):
+        """Extract all task intervals spent working on some task.
+
+        Arguments:
+        - `task`: the task to extract intervals for.
+        """
+        sql = ("SELECT TASKINTERVAL, START_TIME, STOP_TIME " +
+               "FROM TASKINTERVAL WHERE TASK = ?")
+        with self.cursor() as cursor:
+            cursor.execute(sql, (task.task_id,))
+            return [TaskInterval.map_row(task, row) for row in cursor.fetchall()]
+
+    def in_progress(self):
+        """Extract the task interval currently in progress."""
+
+        interval_sql = ("SELECT TASK, TASKINTERVAL, START_TIME, STOP_TIME FROM TASKINTERVAL " +
+                        "WHERE STOP_TIME IS NULL")
+        with self.cursor() as cursor:
+            cursor.execute(interval_sql)
+            rows = cursor.fetchall()
+            if len(rows) > 1:
+                message = "Should only have one task in progress, but found: {}".format(rows)
+                raise TooManyTasksInProgress(message)
+            if not rows:
+                return None
+            task_id, interval = rows[0][0], rows[0][1:]
+            task = self.tasks.by_id(task_id)
+            return TaskInterval.map_row(task, interval)

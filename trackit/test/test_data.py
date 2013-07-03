@@ -7,8 +7,9 @@
 
 import pytest
 import sqlite3
+import time
 
-from ..data import Task, Tasks, TaskInterval, TaskIntervals, ClosesCursor
+from ..data import Task, Tasks, TaskInterval, TaskIntervals, ClosesCursor, TooManyTasksInProgress
 
 def test_auto_closing_cursor_closes_cursor():
     class ClosableMock(object):
@@ -78,8 +79,52 @@ class TestTaskIntervals(object):
 
     def setup(self):
         self.tt = TestTasks()
-        self.tt.setup
-        self.task_intervals = TaskIntervals(self.tt.conn)
+        self.tt.setup()
+        conn = self.tt.conn
+        self.tasks = self.tt.tasks
+        self.task_intervals = TaskIntervals(conn)
+        now = time.time()
+        conn.execute("INSERT INTO TASKINTERVAL(TASK, START_TIME, STOP_TIME) VALUES(?, ?, ?)",
+                     (1, now, now + 10))
 
     def teardown(self):
         self.tt.teardown()
+
+    def test_should_be_able_to_find_interval_for_preexisting_task(self):
+        task = self.tasks.by_id(1)
+        intervals = self.task_intervals.for_task(task)
+        assert len(intervals) == 1
+
+    def test_starting_work_on_task_should_insert_new_interval(self):
+        task = self.tasks.by_id(2)
+        intervals = self.task_intervals.for_task(task)
+        assert len(intervals) == 0
+        interval = self.task_intervals.start(task)
+        intervals = self.task_intervals.for_task(task)
+        assert len(intervals) == 1
+        assert intervals[0]._task.task_id == interval._task.task_id
+        assert intervals[0]._task_interval == interval._task_interval
+
+    def test_after_stopping_no_intervals_should_be_in_progress(self):
+        task = self.tasks.by_id(1)
+        self.task_intervals.start(task)
+        intervals = self.task_intervals.for_task(task)
+        assert any(interval.in_progress for interval in intervals)
+        self.task_intervals.stop(task)
+        intervals = self.task_intervals.for_task(task)
+        assert len(intervals) > 0
+        for interval in intervals:
+            assert not interval.in_progress
+
+    def test_should_extract_the_interval_in_progress(self):
+        task = self.tasks.by_id(1)
+        started = self.task_intervals.start(task)
+        in_progress = self.task_intervals.in_progress()
+        assert in_progress._task_interval == started._task_interval
+        assert in_progress.task._task_id == started.task._task_id
+
+    def test_should_refuse_to_start_new_task_if_one_is_already_in_progress(self):
+        task = self.tasks.by_id(2)
+        self.task_intervals.start(task)
+        with pytest.raises(TooManyTasksInProgress):
+            self.task_intervals.start(task)
