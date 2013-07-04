@@ -128,3 +128,13 @@ class TestTaskIntervals(object):
         self.task_intervals.start(task)
         with pytest.raises(TooManyTasksInProgress):
             self.task_intervals.start(task)
+
+    def test_should_be_able_to_start_and_stop_task_in_the_past(self):
+        now = time.time()
+        an_hour_ago = now - 60 * 60
+        a_minute_ago = now - 60
+        task = self.tasks.by_id(2)
+        self.task_intervals.start(task, an_hour_ago)
+        self.task_intervals.stop(task, a_minute_ago)
+        latest_interval = self.task_intervals.for_task(task)[-1]
+        assert latest_interval.duration == a_minute_ago - an_hour_ago

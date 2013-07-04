@@ -150,6 +150,11 @@ class TaskInterval(DefaultRepr):
     def in_progress(self):
         return self.stop_time is None
 
+    @property
+    def duration(self):
+        stop = self.stop_time if self.stop_time is not None else time.time()
+        return stop - self.start_time
+
     @classmethod
     def map_row(cls, task, row):
         return cls(task, *row)
@@ -182,39 +187,41 @@ class TaskIntervals(ClosesCursor):
         with self.cursor() as cursor:
             _execute_with_except(cursor, TaskIntervals.SCHEMA)
 
-    def start(self, task):
+    def start(self, task, when=None):
         """Start working on a task.
 
         Arguments:
-        - `task`: the task to start working on."""
+        - `task`: the task to start working on.
+        - `when`: unix-time for when task was started."""
 
         assert task is not None, "may not start task None"
         in_progress = self.in_progress()
         if in_progress is not None:
             raise TooManyTasksInProgress("Must stop working on {} before starting on new task."
                                          .format(in_progress))
+        when = time.time() if when is None else when
         with self.cursor() as cursor:
-            now = time.time()
             sql = "INSERT INTO TASKINTERVAL(TASK, START_TIME) VALUES(?, ?)"
-            cursor.execute(sql, (task.task_id, now))
-            return TaskInterval(task, cursor.lastrowid, now)
+            cursor.execute(sql, (task.task_id, when))
+            return TaskInterval(task, cursor.lastrowid, when)
 
-    def stop(self, task):
+    def stop(self, task, when=None):
         """Stop working on a task.
 
         Arguments:
-        - `task`: the task to stop working on"""
+        - `task`: the task to stop working on.
+        - `when`: unix time for when task was stopped."""
 
         latest = ("SELECT TASKINTERVAL FROM TASKINTERVAL WHERE TASK = ? AND " +
                   "START_TIME = (SELECT MAX(START_TIME) FROM TASKINTERVAL WHERE TASK = ?)")
-        now = time.time()
+        when = time.time() if when is None else when
         stop = "UPDATE TASKINTERVAL SET STOP_TIME = ? WHERE TASKINTERVAL = ?"
         with self.cursor() as cursor:
             cursor.execute(latest, (task.task_id, task.task_id))
             row = cursor.fetchone()
             if not row:
                 raise NoTaskInProgress("No work in progress on task: {}".format(task))
-            cursor.execute(stop, (now, row[0]))
+            cursor.execute(stop, (when, row[0]))
 
     def for_task(self, task):
         """Extract all task intervals spent working on some task.
@@ -223,7 +230,7 @@ class TaskIntervals(ClosesCursor):
         - `task`: the task to extract intervals for.
         """
         sql = ("SELECT TASKINTERVAL, START_TIME, STOP_TIME " +
-               "FROM TASKINTERVAL WHERE TASK = ?")
+               "FROM TASKINTERVAL WHERE TASK = ? ORDER BY TASKINTERVAL")
         with self.cursor() as cursor:
             cursor.execute(sql, (task.task_id,))
             return [TaskInterval.map_row(task, row) for row in cursor.fetchall()]
