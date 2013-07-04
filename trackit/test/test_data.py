@@ -9,7 +9,7 @@ import pytest
 import sqlite3
 import time
 
-from ..data import Task, Tasks, TaskInterval, TaskIntervals, ClosesCursor, TooManyTasksInProgress
+from ..data import Task, Tasks, TaskInterval, TaskIntervals, ClosesCursor, TooManyTasksInProgress, InconsistentTaskIntervals
 
 def test_auto_closing_cursor_closes_cursor():
     class ClosableMock(object):
@@ -138,3 +138,21 @@ class TestTaskIntervals(object):
         self.task_intervals.stop(task, a_minute_ago)
         latest_interval = self.task_intervals.for_task(task)[-1]
         assert latest_interval.duration == a_minute_ago - an_hour_ago
+
+    def test_should_not_be_able_to_overlap_task_intervals(self):
+        now = time.time()
+        an_hour_ago = now - 60 * 60
+        half_an_hour_ago = now - 30 * 60
+        task = self.tasks.by_id(2)
+        self.task_intervals.start(task, an_hour_ago)
+        self.task_intervals.stop(task, now)
+        with pytest.raises(InconsistentTaskIntervals):
+            self.task_intervals.start(task, half_an_hour_ago)
+
+    def test_should_not_be_able_to_stop_before_start(self):
+        now = time.time()
+        an_hour_ago = now - 60 * 60
+        task = self.tasks.by_id(2)
+        self.task_intervals.start(task, now)
+        with pytest.raises(InconsistentTaskIntervals):
+            self.task_intervals.stop(task, an_hour_ago)

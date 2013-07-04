@@ -20,6 +20,9 @@ class TooManyTasksInProgress(TrackitException):
 class NoTaskInProgress(TrackitException):
     pass
 
+class InconsistentTaskIntervals(TrackitException):
+    pass
+
 class ClosesCursor(object):
     """Inherit to get context managed cursor, enabling the following idiom:
 
@@ -148,10 +151,12 @@ class TaskInterval(DefaultRepr):
 
     @property
     def in_progress(self):
+        """True when the time interval has not been stopped."""
         return self.stop_time is None
 
     @property
     def duration(self):
+        """Duration in seconds this task has been ongoing."""
         stop = self.stop_time if self.stop_time is not None else time.time()
         return stop - self.start_time
 
@@ -212,7 +217,7 @@ class TaskIntervals(ClosesCursor):
         - `task`: the task to stop working on.
         - `when`: unix time for when task was stopped."""
 
-        latest = ("SELECT TASKINTERVAL FROM TASKINTERVAL WHERE TASK = ? AND " +
+        latest = ("SELECT TASKINTERVAL, START_TIME FROM TASKINTERVAL WHERE TASK = ? AND " +
                   "START_TIME = (SELECT MAX(START_TIME) FROM TASKINTERVAL WHERE TASK = ?)")
         when = time.time() if when is None else when
         stop = "UPDATE TASKINTERVAL SET STOP_TIME = ? WHERE TASKINTERVAL = ?"
@@ -221,7 +226,13 @@ class TaskIntervals(ClosesCursor):
             row = cursor.fetchone()
             if not row:
                 raise NoTaskInProgress("No work in progress on task: {}".format(task))
-            cursor.execute(stop, (when, row[0]))
+            interval_id, start_time = row
+            if start_time >= when:
+                message = "Start time is {} which is *after* stop time: {}".format(
+                    start_time, when
+                )
+                raise InconsistentTaskIntervals(message)
+            cursor.execute(stop, (when, interval_id))
 
     def for_task(self, task):
         """Extract all task intervals spent working on some task.
