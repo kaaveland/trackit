@@ -1,0 +1,2 @@
+class TrackitException(Exception):
+    pass

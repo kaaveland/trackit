@@ -12,8 +12,12 @@ import sqlite3
 import time
 from contextlib import closing
 from .util import dumb_constructor, DefaultRepr
+from . import TrackitException
 
-class TooManyTasksInProgress(Exception):
+class TooManyTasksInProgress(TrackitException):
+    pass
+
+class NoTaskInProgress(TrackitException):
     pass
 
 class ClosesCursor(object):
@@ -209,7 +213,7 @@ class TaskIntervals(ClosesCursor):
             cursor.execute(latest, (task.task_id, task.task_id))
             row = cursor.fetchone()
             if not row:
-                raise KeyError("No work in progress on task: {}".format(task))
+                raise NoTaskInProgress("No work in progress on task: {}".format(task))
             cursor.execute(stop, (now, row[0]))
 
     def for_task(self, task):
