@@ -206,6 +206,14 @@ class TaskIntervals(ClosesCursor):
                                          .format(in_progress))
         when = time.time() if when is None else when
         with self.cursor() as cursor:
+            cursor.execute("SELECT TASK, START_TIME, STOP_TIME FROM TASKINTERVAL " +
+                           "WHERE START_TIME < ? AND STOP_TIME > ?", (when, when))
+            rows = cursor.fetchall()
+            if rows:
+                task, start, stop = rows[0]
+                message = "Already an interal from {} to {} working on task {}".format(
+                    start, stop, task)
+                raise InconsistentTaskIntervals(message)
             sql = "INSERT INTO TASKINTERVAL(TASK, START_TIME) VALUES(?, ?)"
             cursor.execute(sql, (task.task_id, when))
             return TaskInterval(task, cursor.lastrowid, when)

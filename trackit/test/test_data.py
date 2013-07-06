@@ -85,7 +85,7 @@ class TestTaskIntervals(object):
         self.task_intervals = TaskIntervals(conn)
         now = time.time()
         conn.execute("INSERT INTO TASKINTERVAL(TASK, START_TIME, STOP_TIME) VALUES(?, ?, ?)",
-                     (1, now, now + 10))
+                     (1, now - 15, now - 5))
 
     def teardown(self):
         self.tt.teardown()
