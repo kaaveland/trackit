@@ -72,6 +72,7 @@ def _read_config(fp):
     return content
 
 def get_trackit_configuration():
+    """Read configuration into a dictionary from all the files in CONFIGURATION_FILE_LOCATIONS."""
     configuration = {}
     configuration.update(DEFAULT)
     for path in CONFIGURATION_FILE_LOCATIONS:
