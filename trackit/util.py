@@ -11,6 +11,8 @@ Utilities that happen to be useful for several modules in trackit.
 
 from functools import wraps
 import inspect
+import os
+import codecs
 
 def dumb_constructor(init_method):
     """Create a dumb constructor that wraps init method.
@@ -46,3 +48,33 @@ class DefaultRepr(object):
                                if not name.startswith("_") and not callable(value)]
         printed = ", ".join(["{}={}".format(name, repr(value)) for name, value in eligible_attributes])
         return "<{}({})>".format(self.__class__.__name__, printed)
+
+def _expand(path):
+
+    return os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
+
+class Path(object):
+
+    def __init__(self, path):
+        self.path = _expand(path)
+
+    def __eq__(self, other):
+        return isinstance(other, Path) and self.path == other.path
+
+    @property
+    def up(self):
+        return self.__class__(os.path.dirname(self.path))
+
+    def __repr__(self):
+        return "<Path('{}')>".format(self.path)
+
+    def join(self, other):
+        return Path(os.path.join(self.path,
+                                 other.path if isinstance(other, Path) else other))
+
+    @property
+    def basename(self):
+        return os.path.basename(self.path)
+
+    def open(self, mode='r', encoding=None):
+        return codecs.open(self.path, mode=mode, encoding=encoding)
