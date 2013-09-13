@@ -13,6 +13,7 @@ from functools import wraps
 import inspect
 import os
 import codecs
+import itertools
 
 def dumb_constructor(init_method):
     """Create a dumb constructor that wraps init method.
@@ -53,7 +54,7 @@ def _expand(path):
 
     return os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
 
-class Path(object):
+class Path(DefaultRepr):
 
     def __init__(self, path):
         self.path = _expand(path)
@@ -65,9 +66,6 @@ class Path(object):
     def up(self):
         return self.__class__(os.path.dirname(self.path))
 
-    def __repr__(self):
-        return "<Path('{}')>".format(self.path)
-
     def join(self, other):
         return Path(os.path.join(self.path,
                                  other.path if isinstance(other, Path) else other))
@@ -78,3 +76,29 @@ class Path(object):
 
     def open(self, mode='r', encoding=None):
         return codecs.open(self.path, mode=mode, encoding=encoding)
+
+class ChainMap(DefaultRepr):
+
+    def __init__(self, *dicts):
+        self.dicts = dicts
+
+    def __getitem__(self, key):
+        for dct in self.dicts:
+            try:
+                return dct[key]
+            except KeyError:
+                continue
+        raise KeyError('no such item {}'.format(repr(key)))
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def __iter__(self):
+        return iter(set(itertools.chain(*self.dicts)))
+
+    def items(self):
+        for key in self:
+            yield (key, self[key])

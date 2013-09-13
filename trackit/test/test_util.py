@@ -8,7 +8,7 @@
 import pytest
 import os
 
-from ..util import dumb_constructor, DefaultRepr, Path
+from ..util import dumb_constructor, DefaultRepr, Path, ChainMap
 
 class TestDumbConstructor(object):
     def test_should_accept_methods_named_init(self):
@@ -89,7 +89,7 @@ class TestPath(object):
 
     def test_path_should_have_sensible_repr(self):
 
-        assert repr(Path('/')) == "<Path('/')>"
+        assert repr(Path('/')) == "<Path(path='/')>"
 
     def test_joining_path_to_root_should_yield_child_of_root(self):
 
@@ -99,5 +99,39 @@ class TestPath(object):
         assert Path('/').join('tmp').basename == 'tmp'
 
     def test_should_be_able_to_open_this_file_in_read_mode_and_read_unicode(self):
-        with Path(__file__).open(encoding='utf-8') as inf:
+        with Path(__file__.replace('.pyc', '.py')).open(encoding='utf-8') as inf:
             assert isinstance(inf.readline(), unicode)
+
+class TestChainMap(object):
+
+    def test_chainmap_should_have_dicts_attribute(self):
+        assert ChainMap().dicts is not None
+
+    def test_chainmap_should_have_sane_repr(self):
+        assert repr(ChainMap()) == '<ChainMap(dicts=())>'
+
+    def test_should_raise_key_error_when_key_is_not_in_any_dict(self):
+        with pytest.raises(KeyError):
+            ChainMap()[0]
+
+    def test_get_should_return_default_value_when_no_such_key(self):
+        assert ChainMap().get('foo', 'bar') == 'bar'
+
+    def test_get_should_return_value_item_when_there_is_a_key(self):
+        assert ChainMap({'foo': 'bar'}).get('foo') == 'bar'
+
+    def test_indexing_should_yield_item_value_when_there_is_a_key(self):
+        assert ChainMap({'foo': 'bar'})['foo'] == 'bar'
+
+    def test_when_key_is_not_in_first_dict_but_second_it_should_be_found(self):
+        assert ChainMap({}, {'foo': 'bar'})['foo'] == 'bar'
+
+    def test_when_several_dicts_have_key_only_first_one_should_be_returned(self):
+        assert ChainMap({0: 1}, {0: 'wrong'})[0] == 1
+
+    def test_should_iterate_over_all_keys_in_all_dicts_but_only_once_per_key(self):
+        assert set(ChainMap({'foo': 0}, {'bar': 1, 'foo': 2})) == set(['foo', 'bar'])
+
+    def test_items_should_iterate_over_all_pairs_but_only_once_per_key(self):
+        assert (set(ChainMap({'foo': 0}, {'foo': 1, 'bar': 2}).items()) ==
+                set([('foo', 0), ('bar', 2)]))
