@@ -13,7 +13,6 @@ setup(
     version = "0.1.0",
 
     install_requires = [
-        "pyobjc"
     ],
 
     tests_require = [
@@ -32,7 +31,7 @@ setup(
         "License :: OSI Approved :: BSD License",
         "Development Status :: 2 - Pre-Alpha",
         "Programming Language :: Python :: 2.6",
-#        "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 2.7",
 #        "Programming Language :: Python :: 3.2",
     ],
 )
