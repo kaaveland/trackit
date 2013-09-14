@@ -14,6 +14,7 @@ import argparse
 from functools import wraps
 
 from trackit import configuration, util, data
+from trackit.exceptions import ArgumentParsingException
 
 def configured(command):
     """Wrap command in a function that passes in the trackit configuration
@@ -59,8 +60,6 @@ def start(configuration, options, data):
     data.intervals.start(task)
     print "Tracking '{}'.".format(task.name)
     return 0
-
-class ArgumentParsingException(Exception): pass
 
 class TrackitArgparser(argparse.ArgumentParser):
     """Using this to prevent argparse from sending SystemExit.

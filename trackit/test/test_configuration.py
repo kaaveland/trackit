@@ -56,8 +56,8 @@ def test_load_user_settings_when_home_exists():
         settings = DEFAULT.copy()
         settings['foo'] = 3
         dump_settings(settings, outf)
-        actual = load_user_settings(target)
-        assert settings == actual
+    actual = load_user_settings(target)
+    assert settings == actual
 
 def test_system_settings_should_be_default_when_file_doesnt_exist():
     assert load_system_settings() == DEFAULT

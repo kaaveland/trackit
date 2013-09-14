@@ -12,7 +12,7 @@ import sqlite3
 import time
 from contextlib import closing
 from trackit.util import dumb_constructor, DefaultRepr
-from trackit import TrackitException
+from trackit.exceptions import TrackitException
 
 class TooManyTasksInProgress(TrackitException):
     """Data integrity problem - only one task should be in progress at

@@ -8,6 +8,7 @@
 import sys
 import os
 from trackit import util, main
+from trackit.exceptions import ArgumentParsingException
 
 SIMULATION_HOME = util.Path('.').join('trackit_simulation_home')
 
