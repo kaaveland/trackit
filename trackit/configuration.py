@@ -11,8 +11,9 @@ Configuration file management for trackit.
 import json
 from trackit.util import Path, ChainMap
 
+HOME = Path('$HOME').join('.trackit'),
+
 DEFAULT = {
-    'home': Path('$HOME').join('.trackit'),
     'database': 'db.sqlite',
     'encoding': 'utf-8'
 }

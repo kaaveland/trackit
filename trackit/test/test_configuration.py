@@ -14,7 +14,6 @@ def test_settings_encoder():
     assert file_.getvalue()
 
 def test_default_config_should_have_all_keys():
-    assert 'home' in DEFAULT
     assert 'database' in DEFAULT
     assert 'encoding' in DEFAULT
 
