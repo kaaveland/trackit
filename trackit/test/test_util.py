@@ -103,6 +103,11 @@ class TestPath(object):
         with Path(__file__.replace('.pyc', '.py')).open(encoding='utf-8') as inf:
             assert isinstance(inf.readline(), unicode)
 
+    def test_exists_predicate(self):
+        assert Path('.').exists()
+        assert Path('~').exists
+        assert not Path('thisisabsolutelynotarealfile').exists()
+
 class TestChainMap(object):
 
     def test_chainmap_should_have_dicts_attribute(self):

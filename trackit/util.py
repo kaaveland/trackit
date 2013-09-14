@@ -92,6 +92,13 @@ class Path(DefaultRepr):
         return codecs.open(self.path, mode=mode,
                            encoding=encoding)
 
+    def exists(self):
+        """Test whether this path exists. Present for tests."""
+        return os.path.exists(self.path)
+
+    def makedir(self):
+        """Make directory at this path. Creates all intermediate paths."""
+        return os.makedirs(self.path)
 
 class ChainMap(DefaultRepr):
     """Minimalistic chainmap that delegates to a collection of dictionaries.

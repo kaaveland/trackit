@@ -11,7 +11,7 @@ Configuration file management for trackit.
 import json
 from trackit.util import Path, ChainMap
 
-HOME = Path('$HOME').join('.trackit'),
+HOME = Path('$HOME').join('.trackit')
 
 DEFAULT = {
     'database': 'db.sqlite',
@@ -43,3 +43,37 @@ def load_settings(file_):
 def dump_settings(settings, file_):
     """Dump settings to file_, which is a file-like."""
     file_.write(SettingsEncoder(indent=2).encode(settings))
+
+def load_user_settings(home=HOME):
+    """Loads settings from users home folder."""
+    config = home.join('config')
+    try:
+        with config.open() as inf:
+            return load_settings(inf)
+    except IOError:
+        create_home(home)
+        with config.open() as inf:
+            return load_settings(inf)
+
+def load_system_settings():
+    """Loads settings from system settings catalog."""
+    system = Path('/').join('etc').join('trackit')
+    try:
+        with system.open() as inf:
+            return load_settings(inf)
+    except IOError:
+        return DEFAULT
+
+def create_home(target=HOME):
+    """This will create the users trackit home and settings file if
+    necessary."""
+    target.makedir()
+    config = target.join('config')
+    with config.open('ab') as outf:
+        dump_settings(DEFAULT, outf)
+
+def load_configuration(home=HOME):
+    """Loads configuration into a ChainMap.
+
+    User settings has higher priority than system settings."""
+    return ChainMap(load_user_settings(home), load_system_settings())
