@@ -7,9 +7,11 @@
 
 import pytest
 import os
+import sys
 import json
+from cStringIO import StringIO
 
-from ..util import dumb_constructor, DefaultRepr, Path, ChainMap
+from trackit.util import dumb_constructor, DefaultRepr, Path, ChainMap, CaptureIO
 
 class TestDumbConstructor(object):
     def test_should_accept_methods_named_init(self):
@@ -154,3 +156,29 @@ class TestChainMap(object):
     def test_empty_chainmap_should_be_false_in_boolean_context(self):
         assert not ChainMap()
         assert not ChainMap({}, {})
+
+class TestCaptureIO(object):
+
+    def test_restores_files_after_block(self):
+        fds = sys.stdout, sys.stderr, sys.stdin
+        with CaptureIO():
+            pass
+        assert fds == (sys.stdout, sys.stderr, sys.stdin)
+
+    def test_not_using_real_files_in_block(self):
+        with CaptureIO():
+            assert not hasattr(sys.stdout, 'fileno')
+            assert not hasattr(sys.stdout, 'fileno')
+            assert not hasattr(sys.stdout, 'fileno')
+
+    def test_should_get_content_of_caputer_if_reading_in_block(self):
+        with CaptureIO(stdin="foo"):
+            assert raw_input() == 'foo'
+
+    def test_printing_should_get_captured(self):
+        capture = CaptureIO()
+        with capture:
+            print "foo"
+            sys.stderr.write("BAD ERROR")
+        assert capture.stdout.getvalue() == "foo\n"
+        assert capture.stderr.getvalue() == 'BAD ERROR'

@@ -10,10 +10,12 @@ Utilities that happen to be useful for several modules in trackit.
 """
 
 from functools import wraps
+from cStringIO import StringIO
 import inspect
 import os
 import codecs
 import itertools
+import sys
 
 
 def dumb_constructor(init_method):
@@ -137,3 +139,26 @@ class ChainMap(DefaultRepr):
 
     def __len__(self):
         return len(iter(self))
+
+class CaptureIO(object):
+    """Context managed capture of stdin/stderr/stdout."""
+
+    def __init__(self, stdin=None):
+        """Optionally pass in content of fake stdin."""
+        self.stdout = StringIO()
+        self.stderr = StringIO()
+        self.stdin = StringIO() if stdin is None else StringIO(stdin)
+
+    def __enter__(self):
+
+        self.old_stdout = sys.stdout
+        sys.stdout = self.stdout
+        self.old_stdin = sys.stdin
+        sys.stdin = self.stdin
+        self.old_stderr = sys.stderr
+        sys.stderr = self.stderr
+
+    def __exit__(self, *exc_info):
+        sys.stdout = self.old_stdout
+        sys.stdin = self.old_stdin
+        sys.stderr = self.old_stderr
