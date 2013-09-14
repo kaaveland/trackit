@@ -4,23 +4,28 @@
 # This file is a part of trackit. It is distributed under the terms
 # of the modified BSD license. The full license is available in
 # LICENSE, distributed as part of this software.
-
 """
 Interface to the data models used in trackit.
 """
+
 import sqlite3
 import time
 from contextlib import closing
-from .util import dumb_constructor, DefaultRepr
-from . import TrackitException
+from trackit.util import dumb_constructor, DefaultRepr
+from trackit import TrackitException
 
 class TooManyTasksInProgress(TrackitException):
+    """Data integrity problem - only one task should be in progress at
+    any time."""
     pass
 
 class NoTaskInProgress(TrackitException):
+    """Logical problem - should not stop when no task is in progress."""
     pass
 
 class InconsistentTaskIntervals(TrackitException):
+    """Data integrity problem - overlapping task intervals,
+    it should only be possible to track one at a time."""
     pass
 
 class ClosesCursor(object):
@@ -35,9 +40,11 @@ class ClosesCursor(object):
     """
 
     def cursor(self):
+        """Context-managed cursor from self.conn."""
         return closing(self.conn.cursor())
 
 def _execute_with_except(cursor, sql):
+    """Ignore sqlite3 exceptions when executing this sql."""
     try:
         cursor.execute(sql)
     except sqlite3.OperationalError:
@@ -82,14 +89,15 @@ class Tasks(ClosesCursor):
             _execute_with_except(cursor, Tasks.SCHEMA)
 
     def create(self, name, description=None):
-        """Create a Task and return a valid instance that has already been stored in the db.
+        """Create a Task and return a valid instance stored in the db.
 
         Arguments:
         - `name`: The name of the task.
         - `description`: An optional description of the task.
         """
         with self.cursor() as cursor:
-            cursor.execute("INSERT INTO TASK(NAME, DESCRIPTION) VALUES(?, ?)", (name, description))
+            cursor.execute("INSERT INTO TASK(NAME, DESCRIPTION)"
+                           "VALUES(?, ?)", (name, description))
             return Task(cursor.lastrowid, name, description)
 
     def update(self, task):
@@ -99,18 +107,20 @@ class Tasks(ClosesCursor):
         - `task`: The task to update.
         """
         with self.cursor() as cursor:
-            cursor.execute("UPDATE TASK SET NAME = ?, DESCRIPTION = ? WHERE TASK = ?",
+            cursor.execute("UPDATE TASK SET NAME = ?, DESCRIPTION = ?"
+                           "WHERE TASK = ?",
                            (task.name, task.description, task.task_id))
 
     def by_name(self, name):
-        """Attempt to find tasks by their name, will return results in an iterable.
+        """Attempt to find tasks by their name.
 
         Arguments:
         - `name`: the name to search for.
         """
         name_like = "%{}%".format(name)
         with self.cursor() as cursor:
-            cursor.execute("SELECT TASK, NAME, DESCRIPTION FROM TASK WHERE NAME LIKE ?", (name_like,))
+            cursor.execute("SELECT TASK, NAME, DESCRIPTION FROM"
+                           " TASK WHERE NAME LIKE ?", (name_like,))
             return [Task.map_row(row) for row in cursor.fetchall()]
 
     def all(self):
@@ -119,17 +129,20 @@ class Tasks(ClosesCursor):
             cursor.execute("SELECT TASK, NAME, DESCRIPTION FROM TASK")
             return [Task.map_row(row) for row in cursor.fetchall()]
 
-    def by_id(self, id):
-        """Find a task with a given id. This will raise an exception if no such row exists.
+    def by_id(self, id_):
+        """Find a task with a given id.
+
+        Will raise KeyError if there is no such id.
 
         Arguments:
-        - `id`: The id of the task to retrieve.
+        - `id_`: The id of the task to retrieve.
         """
         with self.cursor() as cursor:
-            cursor.execute("SELECT TASK, NAME, DESCRIPTION FROM TASK WHERE TASK = ?", (id,))
+            cursor.execute("SELECT TASK, NAME, DESCRIPTION FROM TASK WHERE"
+                           " TASK = ?", (id_,))
             row = cursor.fetchone()
             if not row:
-                raise KeyError("No Task with id: {}".format(id))
+                raise KeyError("No Task with id: {}".format(id_))
             return Task.map_row(row)
 
 class TaskInterval(DefaultRepr):
@@ -181,7 +194,9 @@ class TaskIntervals(ClosesCursor):
 
     @dumb_constructor
     def __init__(self, conn, tasks=None):
-        """Create a TaskIntervals repository. This will attempt to register the schema.
+        """Create a TaskIntervals repository.
+
+        This will attempt to register the schema.
 
         Arguments:
         - `conn`: sqlite3 database connection.
@@ -202,17 +217,19 @@ class TaskIntervals(ClosesCursor):
         assert task is not None, "may not start task None"
         in_progress = self.in_progress()
         if in_progress is not None:
-            raise TooManyTasksInProgress("Must stop working on {} before starting on new task."
+            raise TooManyTasksInProgress("Must stop working on {} before"
+                                         " starting on new task."
                                          .format(in_progress))
         when = time.time() if when is None else when
         with self.cursor() as cursor:
-            cursor.execute("SELECT TASK, START_TIME, STOP_TIME FROM TASKINTERVAL " +
-                           "WHERE START_TIME < ? AND STOP_TIME > ?", (when, when))
+            cursor.execute("SELECT TASK, START_TIME, STOP_TIME FROM "
+                           "TASKINTERVAL WHERE START_TIME < ? AND "
+                           "STOP_TIME > ?", (when, when))
             rows = cursor.fetchall()
             if rows:
                 task, start, stop = rows[0]
-                message = "Already an interal from {} to {} working on task {}".format(
-                    start, stop, task)
+                message = ("Already an interal from {} to {} working on task {}"
+                           .format(start, stop, task))
                 raise InconsistentTaskIntervals(message)
             sql = "INSERT INTO TASKINTERVAL(TASK, START_TIME) VALUES(?, ?)"
             cursor.execute(sql, (task.task_id, when))
@@ -225,20 +242,21 @@ class TaskIntervals(ClosesCursor):
         - `task`: the task to stop working on.
         - `when`: unix time for when task was stopped."""
 
-        latest = ("SELECT TASKINTERVAL, START_TIME FROM TASKINTERVAL WHERE TASK = ? AND " +
-                  "START_TIME = (SELECT MAX(START_TIME) FROM TASKINTERVAL WHERE TASK = ?)")
+        latest = ("SELECT TASKINTERVAL, START_TIME FROM TASKINTERVAL "
+                  "WHERE TASK = ? AND START_TIME = "
+                  "(SELECT MAX(START_TIME) FROM TASKINTERVAL WHERE TASK = ?)")
         when = time.time() if when is None else when
         stop = "UPDATE TASKINTERVAL SET STOP_TIME = ? WHERE TASKINTERVAL = ?"
         with self.cursor() as cursor:
             cursor.execute(latest, (task.task_id, task.task_id))
             row = cursor.fetchone()
             if not row:
-                raise NoTaskInProgress("No work in progress on task: {}".format(task))
+                raise NoTaskInProgress("No work in progress on task: {}"
+                                       .format(task))
             interval_id, start_time = row
             if start_time >= when:
-                message = "Start time is {} which is *after* stop time: {}".format(
-                    start_time, when
-                )
+                message = ("Start time is {} which is *after* stop time: {}"
+                           .format(start_time, when))
                 raise InconsistentTaskIntervals(message)
             cursor.execute(stop, (when, interval_id))
 
@@ -248,22 +266,25 @@ class TaskIntervals(ClosesCursor):
         Arguments:
         - `task`: the task to extract intervals for.
         """
-        sql = ("SELECT TASKINTERVAL, START_TIME, STOP_TIME " +
+        sql = ("SELECT TASKINTERVAL, START_TIME, STOP_TIME "
                "FROM TASKINTERVAL WHERE TASK = ? ORDER BY TASKINTERVAL")
         with self.cursor() as cursor:
             cursor.execute(sql, (task.task_id,))
-            return [TaskInterval.map_row(task, row) for row in cursor.fetchall()]
+            return [TaskInterval.map_row(task, row)
+                    for row in cursor.fetchall()]
 
     def in_progress(self):
         """Extract the task interval currently in progress."""
 
-        interval_sql = ("SELECT TASK, TASKINTERVAL, START_TIME, STOP_TIME FROM TASKINTERVAL " +
+        interval_sql = ("SELECT TASK, TASKINTERVAL, START_TIME, STOP_TIME "
+                        "FROM TASKINTERVAL "
                         "WHERE STOP_TIME IS NULL")
         with self.cursor() as cursor:
             cursor.execute(interval_sql)
             rows = cursor.fetchall()
             if len(rows) > 1:
-                message = "Should only have one task in progress, but found: {}".format(rows)
+                message = ("Should only have one task in progress but found: {}"
+                           .format(rows))
                 raise TooManyTasksInProgress(message)
             if not rows:
                 return None
