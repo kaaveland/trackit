@@ -74,14 +74,20 @@ def create_home(target=HOME):
     with config.open('ab') as outf:
         dump_settings(DEFAULT, outf)
 
+def _to_path(home=None):
+    if home is None:
+        return HOME
+    elif not isinstance(home, Path):
+        return Path(home)
+    else:
+        return home
+
+def get_db(configuration):
+    return sqlite3.connect(configuration['_home'].join(configuration['database']).path)
+
 def load_configuration(home=None):
     """Loads configuration into a ChainMap.
 
     User settings has higher priority than system settings."""
-    if home is None:
-        home = HOME
-    elif not isinstance(home, Path):
-        home = Path(home)
-    settings = ChainMap(load_user_settings(home), load_system_settings())
-    db_path = home.join(settings['database']).path
-    return ChainMap({'db': sqlite3.connect(db_path)}, settings)
+    home = _to_path(home)
+    return ChainMap({'_home': home}, load_user_settings(home), load_system_settings())

@@ -21,21 +21,44 @@ def configured(command):
     @wraps(command)
     def wrapper(options):
         config = configuration.load_configuration(options.home)
-
-        return command(config, options)
+        db = configuration.get_db(config)
+        out = command(config, options, data.Data(db))
+        db.commit()
+        return out
     return wrapper
 
 @configured
-def stop(configuration, options):
-    print "Nothing to stop."
+def stop(configuration, options, data):
+    in_progress = data.intervals.in_progress()
+    if in_progress is None:
+        print 'Nothing to stop.'
+    else:
+        stopped = data.intervals.stop(in_progress.task)
+        print "Stopped '{}' after {} seconds".format(stopped.task.name, stopped.duration)
+    return 0
 
 @configured
-def status(configuration, options):
-    print "Not tracking."
+def status(configuration, options, data):
+    in_progress = data.intervals.in_progress()
+    if in_progress is None:
+        print 'Not tracking.'
+    else:
+        print "Tracking '{}' for {} seconds so far.".format(in_progress.task.name, in_progress.duration)
+    return 0
 
 @configured
-def start(configuration, options):
-    pass
+def start(configuration, options, data):
+    tasks = data.tasks.by_name(options.task[0])
+    if len(tasks) > 1:
+        print '{} is ambigous, multiple entries:'
+        print ' '.join([task.name for task in tasks])
+    elif not tasks:
+        task = data.tasks.create(options.task[0])
+    else:
+        task = tasks[0]
+    data.intervals.start(task)
+    print "Tracking '{}'.".format(task.name)
+    return 0
 
 class ArgumentParsingException(Exception): pass
 

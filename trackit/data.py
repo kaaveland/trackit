@@ -259,6 +259,7 @@ class TaskIntervals(ClosesCursor):
                            .format(start_time, when))
                 raise InconsistentTaskIntervals(message)
             cursor.execute(stop, (when, interval_id))
+            return TaskInterval(task, interval_id, start_time, when)
 
     def for_task(self, task):
         """Extract all task intervals spent working on some task.
@@ -291,3 +292,9 @@ class TaskIntervals(ClosesCursor):
             task_id, interval = rows[0][0], rows[0][1:]
             task = self.tasks.by_id(task_id)
             return TaskInterval.map_row(task, interval)
+
+class Data(object):
+    def __init__(self, conn):
+        self.tasks = Tasks(conn)
+        self.intervals = TaskIntervals(conn)
+        self.conn = conn

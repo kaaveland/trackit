@@ -57,7 +57,10 @@ class TestMain(object):
         assert self.got_line_with('Not tracking.')
         with self.capture:
             self.run('start', 'task')
-        assert self.got_line_with("Tracking 'task'.")
+        self.capture = util.CaptureIO()
+        with self.capture:
+            self.run('status')
+        assert self.got_line_with("Tracking 'task' for")
 
     def test_stop(self):
         with self.capture:
@@ -68,9 +71,9 @@ class TestMain(object):
         assert self.got_line_with("Tracking 'running'.")
         with self.capture:
             self.run('stop')
-        assert self.got_line_with("Stopped 'running' after.")
+        assert self.got_line_with("Stopped 'running' after")
 
     def test_invalid_command(self):
         with self.capture:
             self.run('fooeuaoeu')
-        assert self.got_err_with('usage:')
+        assert self.got_err('usage:')
