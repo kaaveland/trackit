@@ -135,3 +135,16 @@ class TestChainMap(object):
     def test_items_should_iterate_over_all_pairs_but_only_once_per_key(self):
         assert (set(ChainMap({'foo': 0}, {'foo': 1, 'bar': 2}).items()) ==
                 set([('foo', 0), ('bar', 2)]))
+
+    def test_empty_chainmap_should_be_iterable_too(self):
+        for k in ChainMap():
+            pass
+        for k in ChainMap().items():
+            pass
+
+    def test_should_support_contains_item(self):
+        assert 'foo' in ChainMap({'foo': 1})
+
+    def test_empty_chainmap_should_be_false_in_boolean_context(self):
+        assert not ChainMap()
+        assert not ChainMap({}, {})

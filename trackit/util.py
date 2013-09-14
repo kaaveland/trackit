@@ -102,3 +102,9 @@ class ChainMap(DefaultRepr):
     def items(self):
         for key in self:
             yield (key, self[key])
+
+    def __contains__(self, key):
+        return any(key in dct for dct in self.dicts)
+
+    def __nonzero__(self):
+        return any(self.dicts)
