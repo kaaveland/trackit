@@ -143,6 +143,14 @@ class ChainMap(DefaultRepr):
 class CaptureIO(object):
     """Context managed capture of stdin/stderr/stdout."""
 
+    @property
+    def out(self):
+        return self.stdout.getvalue()
+
+    @property
+    def err(self):
+        return self.stderr.getvalue()
+
     def __init__(self, stdin=None):
         """Optionally pass in content of fake stdin."""
         self.stdout = StringIO()

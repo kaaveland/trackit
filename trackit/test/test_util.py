@@ -180,5 +180,5 @@ class TestCaptureIO(object):
         with capture:
             print "foo"
             sys.stderr.write("BAD ERROR")
-        assert capture.stdout.getvalue() == "foo\n"
-        assert capture.stderr.getvalue() == 'BAD ERROR'
+        assert capture.out == "foo\n"
+        assert capture.err == 'BAD ERROR'

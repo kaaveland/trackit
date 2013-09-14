@@ -9,6 +9,8 @@ Configuration file management for trackit.
 """
 
 import json
+import sqlite3
+
 from trackit.util import Path, ChainMap
 
 HOME = Path('$HOME').join('.trackit')
@@ -72,8 +74,14 @@ def create_home(target=HOME):
     with config.open('ab') as outf:
         dump_settings(DEFAULT, outf)
 
-def load_configuration(home=HOME):
+def load_configuration(home=None):
     """Loads configuration into a ChainMap.
 
     User settings has higher priority than system settings."""
-    return ChainMap(load_user_settings(home), load_system_settings())
+    if home is None:
+        home = HOME
+    elif not isinstance(home, Path):
+        home = Path(home)
+    settings = ChainMap(load_user_settings(home), load_system_settings())
+    db_path = home.join(settings['database']).path
+    return ChainMap({'db': sqlite3.connect(db_path)}, settings)
