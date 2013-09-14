@@ -59,7 +59,7 @@ class TestTasks(object):
         assert new.task_id == 3 and new.name == "Nonsense" and new.description == "What's this"
         assert len(self.tasks.all()) == 3
 
-    def test_should_raise_exception_when_attempting_to_retrieve_non_existant_task(self):
+    def test_should_fail_when_attempting_to_retrieve_non_existant_task(self):
         with pytest.raises(KeyError):
             self.tasks.by_id(9)
 

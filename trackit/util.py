@@ -15,17 +15,20 @@ import os
 import codecs
 import itertools
 
+
 def dumb_constructor(init_method):
     """Create a dumb constructor that wraps init method.
 
-    This simply assigns all parameters provided to it to the instance it belongs to.
-    Shamelessly stolen from:
-    http://stackoverflow.com/questions/1389180/python-automatically-initialize-instance-variables
+    This simply assigns all parameters provided to it to the instance
+    it belongs to. Shamelessly stolen from:
+    http://stackoverflow.com/questions/1389180/\
+    python-automatically-initialize-instance-variables
     """
     name = init_method.__name__
     if name != "__init__":
-        raise ValueError("Misplaced dumb_constructor, expected __init__ but was {}".format(name))
-    names, varargs, keywords, defaults = inspect.getargspec(init_method)
+        raise ValueError("Misplaced dumb_constructor,"
+                         "expected __init__ but was {}".format(name))
+    names, _, _, defaults = inspect.getargspec(init_method)
     @wraps(init_method)
     def wrapper(self, *args, **kargs):
         for name, arg in zip(names[1:], args) + kargs.items():
@@ -37,24 +40,31 @@ def dumb_constructor(init_method):
         init_method(self, *args, **kargs)
     return wrapper
 
+
 class DefaultRepr(object):
-    """Provide a somewhat sane __repr__ method for class that subclasses this."""
+    """Provide a somewhat sane __repr__ method for class that subclasses."""
 
     def __repr__(self):
         """Returns a dict-like string of self, calling repr on attributes.
 
-        This disregards attributes that are callable or start with an underscore."""
+        This disregards attributes that are callable or start with an
+        underscore."""
 
-        eligible_attributes = [(name, value) for name, value in self.__dict__.items()
-                               if not name.startswith("_") and not callable(value)]
-        printed = ", ".join(["{}={}".format(name, repr(value)) for name, value in eligible_attributes])
+        eligible_attributes = [(name, value) for name, value in
+                               self.__dict__.items()
+                               if not name.startswith("_") and
+                               not callable(value)]
+        printed = ", ".join(["{}={}".format(name, repr(value)) for
+                             name, value in eligible_attributes])
         return "<{}({})>".format(self.__class__.__name__, printed)
 
 def _expand(path):
+    """Performs path expansions on argument using os.path functions."""
 
     return os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
 
 class Path(DefaultRepr):
+    """A path on the file system."""
 
     def __init__(self, path):
         self.path = _expand(path)
@@ -64,20 +74,29 @@ class Path(DefaultRepr):
 
     @property
     def up(self):
+        """Uses os.path.dirname to go one level up in the file system tree."""
         return self.__class__(os.path.dirname(self.path))
 
     def join(self, other):
-        return Path(os.path.join(self.path,
-                                 other.path if isinstance(other, Path) else other))
+        """Use os.path.join to concatenate a path or name onto this path."""
+        return Path(os.path.join(self.path, other.path
+                                 if isinstance(other, Path) else other))
 
     @property
     def basename(self):
+        """The basename of this path."""
         return os.path.basename(self.path)
 
     def open(self, mode='r', encoding=None):
-        return codecs.open(self.path, mode=mode, encoding=encoding)
+        """Open as a file at location using codecs.open."""
+        return codecs.open(self.path, mode=mode,
+                           encoding=encoding)
+
 
 class ChainMap(DefaultRepr):
+    """Minimalistic chainmap that delegates to a collection of dictionaries.
+
+    Useful for prioritized lookups, e.g. settings."""
 
     def __init__(self, *dicts):
         self.dicts = dicts
@@ -108,3 +127,6 @@ class ChainMap(DefaultRepr):
 
     def __nonzero__(self):
         return any(self.dicts)
+
+    def __len__(self):
+        return len(iter(self))

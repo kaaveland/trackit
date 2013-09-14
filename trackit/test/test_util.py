@@ -7,6 +7,7 @@
 
 import pytest
 import os
+import json
 
 from ..util import dumb_constructor, DefaultRepr, Path, ChainMap
 
@@ -25,7 +26,7 @@ class TestDumbConstructor(object):
     def test_should_assign_arguments_to_first_argument(self):
         class TestClass(object):
             @dumb_constructor
-            def __init__(obj, a, b, c=3):
+            def __init__(self, a, b, c=3):
                 pass
         test_candidate = TestClass("a", c="c", b="b")
         assert test_candidate.a == "a"
