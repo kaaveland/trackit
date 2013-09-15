@@ -95,8 +95,7 @@ def main(args):
     """Entry point for trackit."""
     try:
         options = parser.parse_args(args)
-        options.func(options)
-        return 0
+        return options.func(options)
     except ArgumentParsingException, e:
         return e.message
 

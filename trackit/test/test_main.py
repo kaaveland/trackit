@@ -20,6 +20,14 @@ class TestMain(object):
         except OSError:
             pass
 
+    @property
+    def out(self):
+        return self.capture.out
+
+    @property
+    def err(self):
+        return self.capture.err
+
     def setup_method(self, meth):
         self.capture = util.CaptureIO()
         self.args = ["--home", SIMULATION_HOME.path]
@@ -34,47 +42,40 @@ class TestMain(object):
 
     def run(self, *args):
         """Runs trackit, sends in args and self.args."""
-        main.main(self.args + list(args))
-
-    def got_line_with(self, part):
-        return any(part in line for line in self.capture.out.split('\n'))
-
-    def got_err(self, part):
-        return any(part in line for line in self.capture.err.split('\n'))
+        return main.main(self.args + list(args))
 
     def test_prints_help(self):
         with self.capture:
             self.run('--help')
-        assert self.got_line_with('usage:')
+        assert 'usage:' in self.out
 
     def test_starts_tracker(self):
         with self.capture:
-            self.run('start', 'bugfixing')
-        assert self.got_line_with("Tracking 'bugfixing'.")
+            assert self.run('start', 'bugfixing') == 0
+        assert "Tracking 'bugfixing'." in self.out
 
     def test_status(self):
         with self.capture:
-            self.run('status')
-        assert self.got_line_with('Not tracking.')
+            assert self.run('status') == 0
+        assert 'Not tracking.' in self.out
         with self.capture:
-            self.run('start', 'task')
-        self.capture = util.CaptureIO()
+            assert self.run('start', 'task') == 0
         with self.capture:
-            self.run('status')
-        assert self.got_line_with("Tracking 'task' for")
+            assert self.run('status') == 0
+        assert "Tracking 'task' for" in self.out
 
     def test_stop(self):
         with self.capture:
-            self.run('stop')
-        assert self.got_line_with('Nothing to stop.')
+            assert self.run('stop') == 0
+        assert 'Nothing to stop.' in self.out
         with self.capture:
-            self.run('start', 'running')
-        assert self.got_line_with("Tracking 'running'.")
+            assert self.run('start', 'running') == 0
+        assert "Tracking 'running'." in self.out
         with self.capture:
-            self.run('stop')
-        assert self.got_line_with("Stopped 'running' after")
+            assert self.run('stop') == 0
+        assert "Stopped 'running' after" in self.out
 
     def test_invalid_command(self):
         with self.capture:
-            self.run('fooeuaoeu')
-        assert self.got_err('usage:')
+            assert self.run('fooeuaoeu') != 0
+        assert 'usage:' in self.err
