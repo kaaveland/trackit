@@ -107,8 +107,20 @@ class TestPath(object):
 
     def test_exists_predicate(self):
         assert Path('.').exists()
-        assert Path('~').exists
+        assert Path('~').exists()
         assert not Path('thisisabsolutelynotarealfile').exists()
+
+    def test_rmdir(self):
+
+        folder = Path('.').join('trackit_testing_path')
+        folder.makedir()
+        assert folder.exists()
+        foo = folder.join('foo')
+        with foo.open('w') as out:
+            out.write('foo')
+        assert foo.exists()
+        folder.rmdir()
+        assert not folder.exists()
 
 class TestChainMap(object):
 

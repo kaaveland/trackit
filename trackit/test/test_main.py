@@ -14,12 +14,6 @@ SIMULATION_HOME = util.Path('.').join('trackit_simulation_home')
 
 class TestMain(object):
 
-    def del_file(self, path):
-        try:
-            os.unlink(SIMULATION_HOME.join(path).path)
-        except OSError:
-            pass
-
     @property
     def out(self):
         return self.capture.out
@@ -33,12 +27,8 @@ class TestMain(object):
         self.args = ["--home", SIMULATION_HOME.path]
 
     def teardown_method(self, meth):
-        self.del_file('db.sqlite')
-        self.del_file('config')
-        try:
-            os.rmdir(SIMULATION_HOME.path)
-        except OSError:
-            pass
+        if SIMULATION_HOME.exists():
+            SIMULATION_HOME.rmdir()
 
     def run(self, *args):
         """Runs trackit, sends in args and self.args."""

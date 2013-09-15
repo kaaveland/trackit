@@ -19,9 +19,7 @@ config = target.join('config')
 
 def teardown_function(func):
     if target.exists():
-        for child in os.listdir(target.path):
-            os.unlink(target.join(child).path)
-        os.rmdir(target.path)
+        target.rmdir()
 
 def test_settings_encoder():
     file_ = StringIO()

@@ -102,6 +102,12 @@ class Path(DefaultRepr):
         """Make directory at this path. Creates all intermediate paths."""
         return os.makedirs(self.path)
 
+    def rmdir(self):
+        """Delete all files in this directory and remove it."""
+        for path in os.listdir(self.path):
+            os.unlink(self.join(path).path)
+        os.rmdir(self.path)
+
 class ChainMap(DefaultRepr):
     """Minimalistic chainmap that delegates to a collection of dictionaries.
 
